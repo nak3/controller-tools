@@ -21,6 +21,7 @@ import (
 	"go/ast"
 	"go/types"
 	"os"
+	"strings"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextlegacy "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -84,6 +85,12 @@ type Generator struct {
 	// You'll need to use "v1" to get support for features like defaulting,
 	// along with an API server that supports it (Kubernetes 1.16+).
 	CRDVersions []string `marker:"crdVersions,optional"`
+
+	// HeaderFile specifies the header text (e.g. license) to prepend to generated files.
+	HeaderFile string `marker:",optional"`
+
+	// Year specifies the year to substitute for " YEAR" in the header file.
+	Year string `marker:",optional"`
 }
 
 func (Generator) CheckFilter() loader.NodeFilter {
@@ -123,6 +130,17 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	if len(crdVersions) == 0 {
 		crdVersions = []string{defaultVersion}
 	}
+
+	var headerText string
+
+	if g.HeaderFile != "" {
+		headerBytes, err := ctx.ReadFile(g.HeaderFile)
+		if err != nil {
+			return err
+		}
+		headerText = string(headerBytes)
+	}
+	headerText = strings.ReplaceAll(headerText, " YEAR", " "+g.Year)
 
 	for groupKind := range kubeKinds {
 		parser.NeedCRDFor(groupKind, g.MaxDescLen)
@@ -172,7 +190,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 			} else {
 				fileName = fmt.Sprintf("%s_%s.%s.yaml", crdRaw.Spec.Group, crdRaw.Spec.Names.Plural, crdVersions[i])
 			}
-			if err := ctx.WriteYAML(fileName, crd); err != nil {
+			if err := ctx.WriteYAML(fileName, headerText, crd); err != nil {
 				return err
 			}
 		}

@@ -121,12 +121,17 @@ type GenerationContext struct {
 // WriteYAML writes the given objects out, serialized as YAML, using the
 // context's OutputRule.  Objects are written as separate documents, separated
 // from each other by `---` (as per the YAML spec).
-func (g GenerationContext) WriteYAML(itemPath string, objs ...interface{}) error {
+func (g GenerationContext) WriteYAML(itemPath, headerText string, objs ...interface{}) error {
 	out, err := g.Open(nil, itemPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
+
+	_, err = out.Write([]byte(headerText))
+	if err != nil {
+		return err
+	}
 
 	for _, obj := range objs {
 		yamlContent, err := yaml.Marshal(obj)
